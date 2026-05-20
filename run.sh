@@ -14,8 +14,8 @@ MODEL_NAME="${MODEL_NAME:-google/gemma-4-e4b-it}"
 #   ~/data/videochat2_action/videochat2_action.json      (prepare_videochat2.py)
 #   ~/data/k710_action.json                              (prepare_k710_gemma4.py)
 #   ~/data/webvid_openai_rewritten/webvid_action.json    (prepare_webvid_openai.py)
-DATA_PATH="${DATA_PATH:-./dataset/bear7011___gemma-4-e4b-webvid-4_k/gemma-4-e4b-webvid-4_k-train.json}"
-IMAGE_FOLDER="${IMAGE_FOLDER:-./dataset/bear7011___gemma-4-e4b-webvid-4_k}"
+DATA_PATH="${DATA_PATH:-./dataset/bear7011___gemma-4-e4b-webvid-4_k/webvid_upgraded.json}"
+IMAGE_FOLDER="${IMAGE_FOLDER:-./dataset/bear7011___gemma-4-e4b-webvid-4_k/}"
 OUTPUT_DIR="${OUTPUT_DIR:-./output/gemma4_e4b_action_stage1}"
 RUN_NAME="${RUN_NAME:-gemma4-e4b-action-stage1}"
 DEEPSPEED_CONFIG="${DEEPSPEED_CONFIG:-deepspeed_config/stage1.json}"
