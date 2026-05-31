@@ -10,3 +10,4 @@ pyproject.toml
 .env
 
 dataset
+hf_upload
