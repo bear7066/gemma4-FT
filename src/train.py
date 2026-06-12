@@ -15,7 +15,6 @@ import sys
 from dataclasses import dataclass, field
 from typing import Optional
 import torch
-import transformers
 from transformers import (
     AutoProcessor,
     Gemma4ForConditionalGeneration,
@@ -29,7 +28,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 from config.common import COMMON_TRAINING_DEFAULTS
 from ds_wrapper import make_data_module
 from sft import GemmaSFTTrainer
-from utils import _freeze_llm, _unfreeze_image_encoder, _print_trainable_parameters, _log
+from utils import _log
 
 
 @dataclass
@@ -83,7 +82,6 @@ def train():
     parser = HfArgumentParser((ModelArguments, DataArguments, Stage1TrainingArguments))
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
     compute_dtype = torch.bfloat16
-    device = training_args.device
 
     _log(f"Loading model: {model_args.model_id}")
 
@@ -93,15 +91,9 @@ def train():
         cache_dir=training_args.cache_dir,
         attn_implementation="sdpa",
     )
-    
-    """
-    # Stage 1: freeze LLM, unfreeze embed_vision (projector)
-    _freeze_llm(model)
-    _unfreeze_image_encoder(model, compute_dtype, device)
-    """
 
     # Full fine-tuning: train all parameters
-    for name, param in model.named_parameters():
+    for param in model.parameters():
         param.requires_grad = True
 
     _log("Full fine-tuning enabled: all parameters trainable")

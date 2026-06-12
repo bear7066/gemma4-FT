@@ -24,6 +24,7 @@ deepspeed_config/stage1.json   ZeRO-2 config
 scripts/full_ft.sh             full fine-tuning launcher
 scripts/lora_ft.sh             LoRA fine-tuning launcher
 scripts/proj_only_ft.sh        projector-only fine-tuning launcher
+scripts/train.sh               shared launcher used by profile wrappers
 ```
 
 ## Data format (messages JSON)
@@ -50,7 +51,7 @@ scripts/proj_only_ft.sh        projector-only fine-tuning launcher
 cd ~/test/GemmaFT
 DATA_PATH=~/data/videochat2_action/videochat2_action.json \
 OUTPUT_DIR=./output/gemma4_e4b_action_stage1 \
-sh scripts/full_ft.sh
+bash scripts/full_ft.sh
 ```
 
 ## Gemma 4 E4B notes (design choices baked in)
