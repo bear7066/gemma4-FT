@@ -10,6 +10,8 @@ video decoding (bypasses system FFmpeg).
 ```
 src/
   train.py        entrypoint (Gemma4ForConditionalGeneration + LoRA)
+  arguments.py    CLI argument dataclasses
+  training_modes.py training mode setup (full, LoRA, projector-only)
   sft.py          GemmaSFTTrainer with per-group LRs
   ds_wrapper.py   SupervisedDataset (messages format, PyAV video I/O)
 utils/
