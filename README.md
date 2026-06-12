@@ -8,20 +8,22 @@ video decoding (bypasses system FFmpeg).
 ## Layout
 
 ```
-stage1/
+src/
   train.py        entrypoint (Gemma4ForConditionalGeneration + LoRA)
   sft.py          GemmaSFTTrainer with per-group LRs
   ds_wrapper.py   SupervisedDataset (messages format, PyAV video I/O)
+utils/
   utils.py        freeze/unfreeze helpers (model.model.language_model etc.)
-  forward.py      no-op (Gemma 4 native forward handles video + loss)
+config/
+  common.py       shared default values
+  full_ft.py      full fine-tuning profile
+  lora_ft.py      LoRA fine-tuning profile
+  proj_only_ft.py projector-only fine-tuning profile
+  entry.py        small CLI entry for scripts
 deepspeed_config/stage1.json   ZeRO-2 config
-prepare_videochat2.py          VideoChat2-IT → action messages JSON
-prepare_k710_gemma4.py         Kinetics-710 → action messages JSON
-prepare_webvid_gemmaFT.py      WebVid QA → action + temporal messages JSON
-prepare_webvid_openai.py       OpenAI-rewritten short action phrases
-upgrade_labels_gpt4o.py        GPT-4o label upgrade pass
-smoke_test.py                  synthetic video + forward/backward sanity check
-run.sh                         training launcher
+scripts/full_ft.sh             full fine-tuning launcher
+scripts/lora_ft.sh             LoRA fine-tuning launcher
+scripts/proj_only_ft.sh        projector-only fine-tuning launcher
 ```
 
 ## Data format (messages JSON)
@@ -44,20 +46,11 @@ run.sh                         training launcher
 ## Quickstart
 
 ```bash
-# 1. Smoke test (synthetic MP4, no data needed)
-cd ~/test && ~/.local/bin/uv run python3 -u GemmaFT/smoke_test.py
-
-# 2. Prepare an action-recognition dataset (pick one)
-~/.local/bin/uv run python3 -u GemmaFT/prepare_videochat2.py \
-    --output-dir ~/data/videochat2_action --max-samples 5000
-~/.local/bin/uv run python3 -u GemmaFT/prepare_k710_gemma4.py \
-    --video-root ~/data/k400 --output ~/data/k710_action.json
-
-# 3. Train
+# Train
 cd ~/test/GemmaFT
 DATA_PATH=~/data/videochat2_action/videochat2_action.json \
 OUTPUT_DIR=./output/gemma4_e4b_action_stage1 \
-sh run.sh
+sh scripts/full_ft.sh
 ```
 
 ## Gemma 4 E4B notes (design choices baked in)
@@ -75,7 +68,7 @@ sh run.sh
   torchcodec / torchvision video.
 - `transformers 5.x` no longer exports `ALL_LAYERNORM_LAYERS`; `sft.py`
   defines it locally as `[nn.LayerNorm]`.
-- `run.sh` defaults target a single 32 GB GPU; scale `NUM_GPUS`,
+- `scripts/full_ft.sh` defaults target 4 GPUs; scale `NUM_GPUS`,
   `gradient_accumulation_steps`, and ZeRO stage as needed.
 
 ## Evaluation
