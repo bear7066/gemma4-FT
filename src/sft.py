@@ -13,6 +13,12 @@ from transformers.trainer_pt_utils import get_parameter_names
 ALL_LAYERNORM_LAYERS = [nn.LayerNorm]
 
 
+"""
+1. override create_optimizer
+2. 替 embed_vision / vision_tower 設不同 learning rate
+3. log optimizer param group LR
+"""
+
 class GemmaSFTTrainer(Trainer):
     def create_optimizer(self):
         opt_model = self.model
