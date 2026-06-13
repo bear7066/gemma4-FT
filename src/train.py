@@ -6,81 +6,32 @@ Gemma 4 Stage 1 Multimodal Fine-tuning
 - Supports: image + video inputs
 
 Usage:
-    uv run deepspeed stage1/train.py --deepspeed scripts/stage1.json [args...]
+    uv run deepspeed src/train.py --deepspeed deepspeed_config/stage1.json [args...]
 """
 
 import os
-import sys
 import pathlib
-sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
-from dataclasses import dataclass, field
-from typing import Optional
+import sys
 import torch
-import transformers
 from transformers import (
     AutoProcessor,
     Gemma4ForConditionalGeneration,
     HfArgumentParser,
-    TrainingArguments,
 )
-from peft import LoraConfig, get_peft_model
-from stage1.ds_wrapper import make_data_module
-from stage1.sft import GemmaSFTTrainer
-from stage1.utils import _freeze_llm, _unfreeze_image_encoder, _print_trainable_parameters, _log
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
-@dataclass
-class ModelArguments:
-    model_id: str = field(
-        default="google/gemma-4-e4b-it",
-        metadata={"help": "HuggingFace model ID or local path"},
-    )
-    use_lora: bool = field(
-        default=True,
-        metadata={"help": "Use LoRA for LLM backbone (recommended for stage 1)"},
-    )
-    lora_r: int = field(default=16, metadata={"help": "LoRA rank"})
-    lora_alpha: int = field(default=32, metadata={"help": "LoRA alpha"})
-    lora_dropout: float = field(default=0.05, metadata={"help": "LoRA dropout"})
-
-
-@dataclass
-class DataArguments:
-    data_path: str = field(metadata={"help": "Training data JSON file path"})
-
-    eval_data_path: Optional[str] = field(
-        default=None,
-        metadata={"help": "Validation data JSON file path"},
-    )
-
-    image_folder: Optional[str] = field(
-        default=None,
-        metadata={"help": "Image/video root directory"},
-    )
-
-
-@dataclass
-class Stage1TrainingArguments(TrainingArguments):
-    image_encoder_lr: Optional[float] = field(
-        default=0.0,
-        metadata={"help": "Vision tower learning rate (0 = frozen)"},
-    )
-    projector_lr: Optional[float] = field(
-        default=2e-5,
-        metadata={"help": "embed_vision (projector) learning rate"},
-    )
-    max_seq_length: int = field(
-        default=2304,
-        metadata={"help": "Max sequence length"},
-    )
-    cache_dir: Optional[str] = field(default=None)
+from arguments import DataArguments, GemmaSFTTrainingArguments, ModelArguments
+from ds_wrapper import make_data_module
+from sft import GemmaSFTTrainer
+from training_modes import apply_training_mode, configure_gradient_checkpointing
+from utils import _log
 
 
 def train():
-    parser = HfArgumentParser((ModelArguments, DataArguments, Stage1TrainingArguments))
+    parser = HfArgumentParser((ModelArguments, DataArguments, GemmaSFTTrainingArguments))
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
     compute_dtype = torch.bfloat16
-    device = training_args.device
 
     _log(f"Loading model: {model_args.model_id}")
 
@@ -90,37 +41,9 @@ def train():
         cache_dir=training_args.cache_dir,
         attn_implementation="sdpa",
     )
-    
-    """
-    # Stage 1: freeze LLM, unfreeze embed_vision (projector)
-    _freeze_llm(model)
-    _unfreeze_image_encoder(model, compute_dtype, device)
-    """
 
-    # Full fine-tuning: train all parameters
-    for name, param in model.named_parameters():
-        param.requires_grad = True
-
-    _log("Full fine-tuning enabled: all parameters trainable")
-
-    # Optionally add LoRA to LLM backbone (keeps it frozen but adds trainable adapters)
-    if model_args.use_lora:
-        lora_config = LoraConfig(
-            r=model_args.lora_r,
-            lora_alpha=model_args.lora_alpha,
-            lora_dropout=model_args.lora_dropout,
-            bias="none",
-            task_type="CAUSAL_LM",
-            target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],
-            layers_to_transform=list(range(42)),  # gemma4-e4b has 42 text layers
-            layers_pattern="language_model.layers",
-        )
-        model = get_peft_model(model, lora_config)
-        _log("LoRA applied to LLM backbone")
-
-    if training_args.gradient_checkpointing:
-        model.enable_input_require_grads()
-        training_args.gradient_checkpointing_kwargs = {"use_reentrant": True}
+    model = apply_training_mode(model, model_args, training_args, compute_dtype)
+    configure_gradient_checkpointing(model, training_args)
 
     model.config.use_cache = False
     model.config.image_encoder_lr = training_args.image_encoder_lr
