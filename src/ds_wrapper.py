@@ -105,6 +105,51 @@ class SupervisedDataset(Dataset):
 
         fps = float(stream.average_rate) if stream.average_rate else 25.0
 
+        # Determine the total frame count WITHOUT decoding, so we can compute the
+        # sampling indices up front and only convert the frames we keep.
+        #   1. stream.frames (from container metadata, no decode)
+        #   2. duration * fps (stream duration, else container duration)
+        original_total_num_frames = stream.frames or 0
+        if original_total_num_frames <= 0:
+            duration_sec = None
+            if stream.duration is not None and stream.time_base is not None:
+                duration_sec = float(stream.duration * stream.time_base)
+            elif container.duration is not None:
+                duration_sec = float(container.duration) / av.time_base
+            if duration_sec:
+                original_total_num_frames = int(duration_sec * fps)
+
+        if original_total_num_frames > 0:
+            # Fast path: only decode/convert the frames at the target indices.
+            indices = torch.linspace(
+                    0,
+                    original_total_num_frames - 1,
+                    steps=min(num_frames, original_total_num_frames),
+                    ).long().tolist()
+            wanted = set(indices)
+            last_wanted = max(wanted)
+
+            kept: Dict[int, "np.ndarray"] = {}
+            for i, frame in enumerate(container.decode(video=0)):
+                if i in wanted:
+                    kept[i] = frame.to_ndarray(format="rgb24")
+                if i >= last_wanted:
+                    break
+            container.close()
+
+            if kept:
+                # Drop any indices past the real end of the stream (in case the
+                # metadata-derived total over-counted), then stack in order.
+                indices = [i for i in indices if i in kept]
+                sampled = np.stack([kept[i] for i in indices], axis=0)
+                sampled_total_num_frames = sampled.shape[0]
+                return sampled, fps, sampled_total_num_frames
+
+            # Fall through to full decode if metadata was wrong and we kept nothing.
+            container = av.open(path)
+
+        # Fallback: frame count unknown (or metadata was unreliable) — decode the
+        # whole stream and sample afterwards.
         all_frames = []
         for frame in container.decode(video=0):
             all_frames.append(frame.to_ndarray(format="rgb24"))
