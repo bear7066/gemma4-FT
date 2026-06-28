@@ -11,16 +11,16 @@ COMMON_TRAINING_DEFAULTS = {
     "gradient_checkpointing": "True",
     "logging_steps": 10,
     "dataloader_num_workers": 4,
-    "max_seq_length": 2304,
+    "max_seq_length": 3072,
     "training_mode": "full",
     "lora_r": 16,
     "lora_alpha": 32,
     "lora_dropout": 0.05,
-    "image_encoder_lr": 0.0,
-    "projector_lr": 2e-5,
+    "image_encoder_lr": 5e-6,
+    "projector_lr": 5e-6,
     "weight_decay": 0.01,
     "num_train_epochs": 1,
-    "save_total_limit": 2,
+    "save_total_limit": 1,
 }
 
 
