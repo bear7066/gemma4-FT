@@ -16,7 +16,7 @@ TRAINING_PROFILE = {
     "projector_lr": 5e-6,
     "eval_strategy": "steps",
     "eval_steps": 100,
-    "save_strategy": "epoch",
-    "save_steps": 200,
+    "save_strategy": "steps",
+    "save_steps": 100,
     "report_to": "none",
 }
